@@ -8,6 +8,7 @@ import (
   "github.com/hyperledger/fabric/core/chaincode/shim"
   "github.com/hyperledger/fabric/core/crypto/primitives"
   "github.com/op/go-logging"
+  "github.com/satori/go.uuid"
 )
 
 const (
@@ -20,8 +21,9 @@ type SupplierDealerChaincode struct {
 }
 
 type ChatLog struct {
-  sender string
-  message  string
+  Id string `json:"id"`
+  Sender string `json:"sender"`
+  Message  string `json:"message"`
 }
 
 func (t *SupplierDealerChaincode) Init(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
@@ -33,6 +35,7 @@ func (t *SupplierDealerChaincode) Init(stub shim.ChaincodeStubInterface, functio
 
   // Create ChatLog table
   chatLogErr := stub.CreateTable("ChatLog", []*shim.ColumnDefinition{
+    &shim.ColumnDefinition{Name: "Id", Type: shim.ColumnDefinition_STRING, Key: true},
     &shim.ColumnDefinition{Name: "Sender", Type: shim.ColumnDefinition_STRING, Key: false},
     &shim.ColumnDefinition{Name: "Message", Type: shim.ColumnDefinition_STRING, Key: false},
   })
@@ -42,6 +45,7 @@ func (t *SupplierDealerChaincode) Init(stub shim.ChaincodeStubInterface, functio
 
   // Create Order table
   orderErr := stub.CreateTable("Order", []*shim.ColumnDefinition{
+    &shim.ColumnDefinition{Name: "Id", Type: shim.ColumnDefinition_STRING, Key: true},
     &shim.ColumnDefinition{Name: "ProductName", Type: shim.ColumnDefinition_STRING, Key: false},
     &shim.ColumnDefinition{Name: "DeliveryAddress", Type: shim.ColumnDefinition_STRING, Key: false},
   })
@@ -59,6 +63,7 @@ func (t *SupplierDealerChaincode) sendMessage(stub shim.ChaincodeStubInterface, 
   message := args[1]
   ok, err := stub.InsertRow(tableColumn, shim.Row{
     Columns: []*shim.Column{
+      &shim.Column{Value: &shim.Column_String_{String_: uuid.NewV4().String()}},
       &shim.Column{Value: &shim.Column_String_{String_: sender}},
       &shim.Column{Value: &shim.Column_String_{String_: message}},
     },
@@ -82,12 +87,14 @@ func (t *SupplierDealerChaincode) readMessages(stub shim.ChaincodeStubInterface,
   }
 
   for row := range rowsChan {
-    chatLog := ChatLog{sender: row.Columns[0].GetString_(), message: row.Columns[1].GetString_()}
+    chatLog := ChatLog{
+      Id: row.Columns[0].GetString_(),
+      Sender: row.Columns[1].GetString_(),
+      Message: row.Columns[2].GetString_()}
+
     chatLogs = append(chatLogs, chatLog)
   }
-
   return json.Marshal(chatLogs)
-}
 
 func (t *SupplierDealerChaincode) Invoke(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
 
